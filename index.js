@@ -4,14 +4,14 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
+// 🔐 AYARLAR
+const VERIFY_TOKEN = "toraman123";
 const TOKEN = "WHATSAPP_ACCESS_TOKEN";
 const PHONE_NUMBER_ID = "1095261063678751";
 const OPENAI_API_KEY = "OPENAI_KEY";
 
-// Webhook doğrulama
+// 🔍 WEBHOOK DOĞRULAMA (Meta burayı kontrol eder)
 app.get("/webhook", (req, res) => {
-  const VERIFY_TOKEN = "toraman123";
-
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
@@ -20,10 +20,10 @@ app.get("/webhook", (req, res) => {
     return res.status(200).send(challenge);
   }
 
-  res.sendStatus(403);
+  return res.sendStatus(403);
 });
 
-// Mesaj alma
+// 📩 MESAJ ALMA
 app.post("/webhook", async (req, res) => {
   try {
     const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
@@ -31,8 +31,9 @@ app.post("/webhook", async (req, res) => {
     if (!message) return res.sendStatus(200);
 
     const from = message.from;
-    const text = message.text.body;
+    const text = message.text?.body || "";
 
+    // 🤖 OPENAI CEVAP
     const ai = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -41,7 +42,7 @@ app.post("/webhook", async (req, res) => {
           {
             role: "system",
             content:
-              "Sen Toraman Teknik müşteri temsilcisisin. Klima ve beyaz eşya arızalarına teknik cevap ver."
+              "Sen Toraman Teknik müşteri temsilcisisin. Klima, beyaz eşya ve teknik servis sorularına kısa, net ve teknik cevap ver."
           },
           { role: "user", content: text }
         ]
@@ -56,6 +57,7 @@ app.post("/webhook", async (req, res) => {
 
     const reply = ai.data.choices[0].message.content;
 
+    // 📲 WHATSAPP CEVAP GÖNDER
     await axios.post(
       `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -73,13 +75,13 @@ app.post("/webhook", async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.log("ERROR:", err.message);
+    console.log("HATA:", err.message);
     res.sendStatus(200);
   }
 });
 
-// 🔥 CRITICAL FIX (Render PORT)
+// 🚀 SERVER START (RENDER UYUMLU)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Bot çalışıyor PORT:", PORT);
+  console.log("Toraman Teknik bot çalışıyor:", PORT);
 });
